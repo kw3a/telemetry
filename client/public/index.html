@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telemetría + Grabación</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 1.2rem; }
+    button { padding: .6rem 1rem; margin-right:.6rem; border-radius:6px; }
+    #log { white-space: pre-wrap; background: #f7f7f7; padding: .6rem; border-radius:6px; margin-top:1rem; max-height:240px; overflow:auto; }
+    video { max-width:100%; border:1px solid #ddd; border-radius:6px; margin-top: .6rem; }
+    .device-btn { min-width:160px; text-align:left; display:inline-flex; align-items:center; gap:.5rem; }
+    .device-state { font-weight:600; margin-left:auto; padding: .15rem .5rem; border-radius:4px; background:#eee; font-size:.85rem; }
+    .state-not-available { background: #f5f5f5; color:#666; }
+    .state-not-allowed { background: #ffe8e8; color:#a00; }
+    .state-working { background: #e8ffea; color:#070; }
+    #previewContainer { margin-top:.6rem; border:1px solid #ddd; padding:.4rem; border-radius:6px; display:inline-block; }
+    #preview { width:854px; height:480px; background:#000; object-fit:cover; display:block; }
+    #previewPlaceholder { width:854px; height:480px; display:flex; align-items:center; justify-content:center; color:#999; background:#111; }
+    .small-note { font-size:.9rem; color:#666; margin-top:.4rem; }
+  </style>
+  <base href="/">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://localhost:8080 http://localhost:8889 http://localhost:9996; img-src 'self' data:; media-src 'self' blob: http://localhost:9996; connect-src 'self' http://localhost:8080 http://localhost:8889 http://localhost:9996; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  
+</head>
+<body>
+  <h2>Telemetría de teclado + Transmisión (MediaMTX WHIP)</h2>
+
+  <div>
+    <label>ID de sesión:</label>
+    <input id="sessionid" type="text" placeholder="ej: abc123" />
+    <button id="view">Ver perfil</button>
+    <button id="listRecordings">Listar grabaciones</button>
+  </div>
+
+  <div style="margin-top:.8rem;">
+    <button id="startBtn">Iniciar</button>
+    <button id="stopBtn" disabled>Detener</button>
+    <button id="togglePreviewBtn">Ocultar vista previa</button>
+  </div>
+
+  <p class="small-note">Vista previa local (lo que realmente se enviará). El componente de vista previa es 480p fijo — la transmisión seguirá siendo 720p.</p>
+  <div id="previewContainer">
+    <video id="preview" autoplay playsinline muted></video>
+    <div id="previewPlaceholder" style="display:none">Sin vista previa — concede permisos o pulsa "Iniciar".</div>
+  </div>
+
+  <p style="margin-top:1rem;">Estado de dispositivos (click para pedir permiso / reintentar):</p>
+  <div id="devices" style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <button id="micBtn" class="device-btn">Micrófono <span id="micState" class="device-state state-not-available">no disponible</span></button>
+    <button id="camBtn" class="device-btn">Cámara <span id="camState" class="device-state state-not-available">no disponible</span></button>
+    <button id="screenBtn" class="device-btn">Pantalla <span id="screenState" class="device-state state-not-available">no disponible</span></button>
+  </div>
+
+  <div id="log"></div>
+
+  <h3>Resultado de perfil</h3>
+  <pre id="result"></pre>
+
+  <h3>Grabaciones</h3>
+  <div id="recordings"></div>
+
+  <script src="app.js"></script>
+  <script src="recording.js"></script>
+  <script src="playback.js"></script>
+</body>
+</html>
+
