@@ -5,60 +5,111 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Telemetría + Grabación</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 1.2rem; }
-    button { padding: .6rem 1rem; margin-right:.6rem; border-radius:6px; }
-    #log { white-space: pre-wrap; background: #f7f7f7; padding: .6rem; border-radius:6px; margin-top:1rem; max-height:240px; overflow:auto; }
-    video { max-width:100%; border:1px solid #ddd; border-radius:6px; margin-top: .6rem; }
-    .device-btn { min-width:160px; text-align:left; display:inline-flex; align-items:center; gap:.5rem; }
-    .device-state { font-weight:600; margin-left:auto; padding: .15rem .5rem; border-radius:4px; background:#eee; font-size:.85rem; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 1rem; max-width: 1200px; margin: 0 auto; background: #f9f9f9; }
+    h2 { margin-top: 0; font-size: 1.5rem; color: #333; }
+    button { padding: .5rem .8rem; border-radius:6px; border: 1px solid #ccc; background: #fff; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
+    button:hover { background: #f0f0f0; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.primary { background: #007bff; color: white; border-color: #007bff; }
+    button.primary:hover { background: #0056b3; }
+    
+    .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 768px) { .grid-container { grid-template-columns: 1fr; } }
+
+    .panel { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    
+    .controls-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    .input-group { display: flex; gap: 0.5rem; align-items: center; }
+    input[type="text"] { padding: .5rem; border-radius: 6px; border: 1px solid #ddd; }
+
+    #log { white-space: pre-wrap; background: #f7f7f7; padding: .6rem; border-radius:6px; height: 150px; overflow:auto; font-size: 0.85rem; border: 1px solid #eee; }
+    
+    video { max-width:100%; border-radius:6px; background: #000; }
+    
+    .device-btn { font-size: 0.85rem; padding: 0.4rem 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
+    .device-state { font-weight:600; padding: .1rem .4rem; border-radius:4px; font-size:.75rem; }
     .state-not-available { background: #f5f5f5; color:#666; }
     .state-not-allowed { background: #ffe8e8; color:#a00; }
     .state-working { background: #e8ffea; color:#070; }
-    #previewContainer { margin-top:.6rem; border:1px solid #ddd; padding:.4rem; border-radius:6px; display:inline-block; }
-    #preview { width:854px; height:480px; background:#000; object-fit:cover; display:block; }
-    #previewPlaceholder { width:854px; height:480px; display:flex; align-items:center; justify-content:center; color:#999; background:#111; }
-    .small-note { font-size:.9rem; color:#666; margin-top:.4rem; }
+
+    #previewContainer { position: relative; width: 100%; padding-top: 56.25%; /* 16:9 Aspect Ratio */ background: #000; border-radius: 6px; overflow: hidden; }
+    #preview, #previewPlaceholder { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    #previewPlaceholder { display:flex; align-items:center; justify-content:center; color:#999; background:#111; flex-direction: column; gap: 1rem; }
+
+    /* Timer */
+    .timer-container { margin-top: 1rem; }
+    .progress-bar { width: 100%; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+    .progress-fill { height: 100%; background: #28a745; width: 0%; transition: width 1s linear; }
+    .timer-text { font-size: 0.9rem; color: #666; display: flex; justify-content: space-between; }
+
+    #result { font-size: 0.85rem; max-height: 200px; overflow: auto; background: #f0f0f0; padding: 0.5rem; border-radius: 6px; }
   </style>
   <base href="/">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://localhost:8080 http://localhost:8889 http://localhost:9996; img-src 'self' data:; media-src 'self' blob: http://localhost:9996; connect-src 'self' http://localhost:8080 http://localhost:8889 http://localhost:9996; script-src 'self'; style-src 'self' 'unsafe-inline'">
-  
 </head>
 <body>
-  <h2>Telemetría de teclado + Transmisión (MediaMTX WHIP)</h2>
+  <div class="grid-container">
+    <!-- Left Column: Controls & Telemetry -->
+    <div class="panel">
+      <h2>Telemetría + Grabación</h2>
+      
+      <div class="controls-row">
+        <div class="input-group">
+          <input id="sessionid" type="text" placeholder="ID de sesión (ej: abc123)" />
+        </div>
+        <button id="view">Ver perfil</button>
+        <button id="listRecordings">Listar grabaciones</button>
+      </div>
 
-  <div>
-    <label>ID de sesión:</label>
-    <input id="sessionid" type="text" placeholder="ej: abc123" />
-    <button id="view">Ver perfil</button>
-    <button id="listRecordings">Listar grabaciones</button>
+      <div class="controls-row">
+        <button id="startBtn" class="primary">Iniciar Grabación + Telemetría</button>
+        <button id="startTelemetryBtn">Iniciar Solo Telemetría</button>
+        <button id="stopBtn" disabled>Detener Todo</button>
+      </div>
+
+      <div class="timer-container">
+        <div class="timer-text">
+          <span>Ciclo de envío (60s)</span>
+          <span id="timerLabel">0s</span>
+        </div>
+        <div class="progress-bar">
+          <div id="timerProgress" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 1.5rem; font-size: 1.1rem;">Estado de dispositivos</h3>
+      <div id="devices" style="display:flex;gap:.5rem;flex-wrap:wrap; margin-bottom: 1rem;">
+        <button id="micBtn" class="device-btn">Micrófono <span id="micState" class="device-state state-not-available">no disponible</span></button>
+        <button id="camBtn" class="device-btn">Cámara <span id="camState" class="device-state state-not-available">no disponible</span></button>
+        <button id="screenBtn" class="device-btn">Pantalla <span id="screenState" class="device-state state-not-available">no disponible</span></button>
+      </div>
+
+      <h3 style="font-size: 1.1rem;">Resultado de perfil</h3>
+      <pre id="result"></pre>
+      
+      <h3 style="font-size: 1.1rem; margin-top: 1rem;">Log</h3>
+      <div id="log"></div>
+    </div>
+
+    <!-- Right Column: Preview & Recordings -->
+    <div class="panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <h3 style="margin: 0; font-size: 1.1rem;">Vista Previa</h3>
+        <button id="togglePreviewBtn" style="font-size: 0.8rem; padding: 0.2rem 0.5rem;">Ocultar</button>
+      </div>
+      
+      <div id="previewContainer">
+        <video id="preview" autoplay playsinline muted></video>
+        <div id="previewPlaceholder">
+          <p>Vista previa desactivada o esperando inicio.</p>
+        </div>
+      </div>
+      <p style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">Nota: La vista previa es 480p, la transmisión es 720p.</p>
+
+      <h3 style="font-size: 1.1rem; margin-top: 1.5rem;">Grabaciones</h3>
+      <div id="recordings"></div>
+    </div>
   </div>
-
-  <div style="margin-top:.8rem;">
-    <button id="startBtn">Iniciar</button>
-    <button id="stopBtn" disabled>Detener</button>
-    <button id="togglePreviewBtn">Ocultar vista previa</button>
-  </div>
-
-  <p class="small-note">Vista previa local (lo que realmente se enviará). El componente de vista previa es 480p fijo — la transmisión seguirá siendo 720p.</p>
-  <div id="previewContainer">
-    <video id="preview" autoplay playsinline muted></video>
-    <div id="previewPlaceholder" style="display:none">Sin vista previa — concede permisos o pulsa "Iniciar".</div>
-  </div>
-
-  <p style="margin-top:1rem;">Estado de dispositivos (click para pedir permiso / reintentar):</p>
-  <div id="devices" style="display:flex;gap:.6rem;flex-wrap:wrap">
-    <button id="micBtn" class="device-btn">Micrófono <span id="micState" class="device-state state-not-available">no disponible</span></button>
-    <button id="camBtn" class="device-btn">Cámara <span id="camState" class="device-state state-not-available">no disponible</span></button>
-    <button id="screenBtn" class="device-btn">Pantalla <span id="screenState" class="device-state state-not-available">no disponible</span></button>
-  </div>
-
-  <div id="log"></div>
-
-  <h3>Resultado de perfil</h3>
-  <pre id="result"></pre>
-
-  <h3>Grabaciones</h3>
-  <div id="recordings"></div>
 
   <script src="app.js"></script>
   <script src="recording.js"></script>

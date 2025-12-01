@@ -10,23 +10,27 @@ import (
 	"github.com/rs/cors"
 )
 
-type Keystroke struct {
-	Key      string  `json:"key"`
-	DownTime float64 `json:"pressed_at"`
-	UpTime   float64 `json:"released_at"`
+type FeatureStats struct {
+	Mean   float64 `json:"mean"`
+	StdDev float64 `json:"std_dev"`
+}
+
+type WindowStats struct {
+	UD  FeatureStats `json:"ud"`
+	DU1 FeatureStats `json:"du1"`
+	DU2 FeatureStats `json:"du2"`
+	DD  FeatureStats `json:"dd"`
+	UU  FeatureStats `json:"uu"`
 }
 
 type TelemetryPayload struct {
 	UserID string      `json:"user_id"`
-	Events []Keystroke `json:"events"`
+	Stats  WindowStats `json:"stats"`
 }
 
 type UserProfile struct {
-	mu          sync.Mutex
-	DwellTimes  []float64
-	FlightTimes []float64
-	LastKeyUp   float64
-	LastKeyDown float64
+	mu      sync.Mutex
+	Windows []WindowStats
 }
 
 var profiles = map[string]*UserProfile{}
@@ -66,40 +70,13 @@ func telemetryHandler(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		profile = &UserProfile{}
 		profiles[payload.UserID] = profile
-	} else if len(payload.Events) > 0 && payload.Events[0].DownTime < profile.LastKeyDown {
-		profile.DwellTimes = []float64{}
-		profile.FlightTimes = []float64{}
-		profile.LastKeyUp = 0
-		profile.LastKeyDown = 0
 	}
 	profilesMu.Unlock()
 
 	profile.mu.Lock()
 	defer profile.mu.Unlock()
 
-	for i, k := range payload.Events {
-		dwell := k.UpTime - k.DownTime
-		if dwell > 0 {
-			profile.DwellTimes = append(profile.DwellTimes, dwell)
-		}
-
-		if i == 0 && profile.LastKeyUp > 0 {
-			flight := k.DownTime - profile.LastKeyUp
-			if flight > 0 {
-				profile.FlightTimes = append(profile.FlightTimes, flight)
-			}
-		} else if i > 0 {
-			flight := k.DownTime - payload.Events[i-1].UpTime
-			if flight > 0 {
-				profile.FlightTimes = append(profile.FlightTimes, flight)
-			}
-		}
-	}
-
-	if len(payload.Events) > 0 {
-		profile.LastKeyDown = payload.Events[len(payload.Events)-1].DownTime
-		profile.LastKeyUp = payload.Events[len(payload.Events)-1].UpTime
-	}
+	profile.Windows = append(profile.Windows, payload.Stats)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status":"ok"}`))
@@ -125,12 +102,6 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	profile.mu.Lock()
 	defer profile.mu.Unlock()
 
-	resp := map[string]interface{}{
-		"dwell_times":  profile.DwellTimes,
-		"flight_times": profile.FlightTimes,
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(profile.Windows)
 }
-
